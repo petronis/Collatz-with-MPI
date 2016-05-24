@@ -26,7 +26,7 @@ int main(int argc, char** argv)
     MPI_Comm_size(MPI_COMM_WORLD, &np);
     MPI_Status status;
 
-    if (master())
+    if (master()) // Only rank 0 will get to this
     {
            printf("Total number of procs: %d\r\n", np);
     }
@@ -34,59 +34,59 @@ int main(int argc, char** argv)
     long maxIterations = 0;
 
     double start = MPI_Wtime();
-    if (master())
+    if (master()) // Only rank 0 will get to this
     {
         long iterations;
-       long i = m, p;
-        for (p = 1; p < np && i < n; i += blockSize, p += 1)
+        long i = m, p;
+        for (p = 1; p < np && i < n; i += blockSize, p += 1) // We divide our interval into block size and will send only that block
         {
-            MPI_Send(&i, 1, MPI_LONG, p, 1, MPI_COMM_WORLD);
+            MPI_Send(&i, 1, MPI_LONG, p, 1, MPI_COMM_WORLD); // We send out the message through MPI
             busy++;
         }
         while (i < n)
         {
-            MPI_Recv(&iterations, 1, MPI_LONG, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status);
-             if (outputFlag != false)
+            MPI_Recv(&iterations, 1, MPI_LONG, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status); // We recieve block that was send from master
+             if (outputFlag != false) // If output flag is not 0 we will get resoult how many iterations it took for every element
                  printf("%ld\r\n", iterations);
-            MPI_Send(&i, 1, MPI_LONG, status.MPI_SOURCE, 1, MPI_COMM_WORLD);
-            i += blockSize;
+            MPI_Send(&i, 1, MPI_LONG, status.MPI_SOURCE, 1, MPI_COMM_WORLD);  // We send out message
+            i += blockSize; // increase i by block size
         }
-        for (p = 1; p <= busy; p++)
+        for (p = 1; p <= busy; p++) 
         {
-            MPI_Recv(&iterations, 1, MPI_LONG, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status);
+            MPI_Recv(&iterations, 1, MPI_LONG, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status); // We recieve the iteration count of every element
             if (outputFlag != false)
                  printf("%ld\r\n", iterations);
         }
         long endOfWork = -1;
         for (p = 1; p < np; p++)
         {
-            MPI_Send(&endOfWork, 1, MPI_LONG, p, 1, MPI_COMM_WORLD);
+            MPI_Send(&endOfWork, 1, MPI_LONG, p, 1, MPI_COMM_WORLD); // We send out that the work has ended
         }
     }
-    else
+    else // If its not master but a slave
     {
         while (true)
         {
             long start_i, end_i;
-            MPI_Recv(&start_i, 1, MPI_LONG, MASTER, 1, MPI_COMM_WORLD, &status);
-            if (start_i < 0)
+            MPI_Recv(&start_i, 1, MPI_LONG, MASTER, 1, MPI_COMM_WORLD, &status); // We recieve interval of block size
+            if (start_i < 0) // If we get that the start of interval is less 0 we break
                 break;
             end_i = start_i + blockSize;
             long job, longestJob = 0;
             long longestIt = 0, tempIt;
-            for (job = start_i; job < end_i; job++)
+            for (job = start_i; job < end_i; job++) // For every interval of block size we do collatz
             {
                 tempIt = collatz(job,0,outputFlag);
-                if (tempIt > longestIt)
+                if (tempIt > longestIt) // We count the longes iteration of interval (this is just to be sure if algorithm is working okay)
                 {
                     longestIt = tempIt;
                     longestJob = job;
                 }
             }
-            MPI_Send(&longestIt, 1, MPI_LONG, MASTER, 1, MPI_COMM_WORLD);
+            MPI_Send(&longestIt, 1, MPI_LONG, MASTER, 1, MPI_COMM_WORLD); // We send out the longes iteration of interval to master that he could print out if its needed
         }
     }
-    double end = MPI_Wtime();
+    double end = MPI_Wtime(); // We get the end time
 
     if (master())
     {
@@ -96,8 +96,8 @@ int main(int argc, char** argv)
     return 0;
 }
 
-long collatz(long n, long iterations, int outputFlag){
-        if (outputFlag != false){
+long collatz(long n, long iterations, int outputFlag){ // Recursive algorithm for collatz problem
+        if (outputFlag != false){ // We print out every n (number of the interval) before doing collatz algorithm (this is just to check if everything is okay)
                 printf("Collatz %d\n",n);
         }
         if(n == 1){
